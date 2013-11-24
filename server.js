@@ -17,7 +17,7 @@ function genMap( x, y ) {
 	for( var xx = 0; xx < common.mapSize.x; xx++ ) {
 		map[xx] = [];
 		for( var yy = 0; yy < common.mapSize.y; yy++ ) {
-			map[xx][yy] = 0;
+			map[xx][yy] = Math.random() > .95 ? 1 : 0;
 		}	
 	}
 	return map;
@@ -82,9 +82,9 @@ io.sockets.on("connection", function (socket) {
 	
 	socket.on( "disconnect", function() {
 		var player = socketPlayer[socket.id];
-		delete playerSocket[player.name];
-		delete socketPlayer[socket.id];
-		delete gd.players[player.name];
+		if( player.name in playerSocket ) delete playerSocket[player.name];
+		if( socket.id in socketPlayer ) delete socketPlayer[socket.id];
+		if( player.name in gd.players ) delete gd.players[player.name];
 		socket.broadcast.emit( "playerDisconnect", player.name );
 	});
 	

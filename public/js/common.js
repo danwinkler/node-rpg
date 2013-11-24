@@ -3,8 +3,8 @@ if( typeof exports == 'undefined' ) {
 }
 
 exports.mapCoordsFromPlayerCoords = function( x, y ) {
-	var ix = Math.floor( x/(20*50) );
-	var iy = Math.floor( y/(20*50) );
+	var ix = Math.floor( x/(exports.mapSize.x*exports.tileSize.x) );
+	var iy = Math.floor( y/(exports.mapSize.y*exports.tileSize.y) );
 	return { "x": ix, "y": iy };
 }
 
@@ -19,4 +19,4 @@ exports.worldSpace = function( x, y ) {
 }
 
 exports.mapSize = { x:20, y:20 };
-exports.tileSize = { x:50, y:50 };
+exports.tileSize = { x:100, y:100 };

@@ -34,6 +34,7 @@ $(function() {
 	};
 	
 	var currentMap = { x:0, y:0 };
+	var currentCenter = { x: 0, y: 0 };
 	
 	var playerSheets = {
 	};
@@ -57,7 +58,7 @@ $(function() {
 	
 	socket.on( "mapUpdate", function( maps ) {
 		playerSheets = {};
-		sheetengine.scene.init( canvas, {w:g.canvas.width*5,h:g.canvas.height*5} );
+		sheetengine.scene.init( canvas, {w:g.canvas.width*10,h:g.canvas.height*10} );
 		var player = players[username];
 		var mapCoords = common.mapCoordsFromPlayerCoords( player.x, player.y );
 		for( var i = 0; i < maps.length; i++ ) {
@@ -71,12 +72,24 @@ $(function() {
 				var row = map[x];
 				for( var y = 0; y < row.length; y++ ) {
 					var basesheet = new sheetengine.BaseSheet( {x:x*common.tileSize.x + xOffset,y:y*common.tileSize.y + yOffset,z:0}, {alphaD:90,betaD:0,gammaD:0}, {w:common.tileSize.x,h:common.tileSize.y} );
-					basesheet.color = '#5D7E36';
+					switch( row[y] ) {
+						case 0: {
+							basesheet.color = '#5D7E36';
+							break;
+						}
+						case 1: {
+							basesheet.color = '#888888';
+							break;
+						}	
+					}
 					map.basesheets.push( basesheet );
 				}
 			}
 		}
 		sheetengine.calc.calculateAllSheets();
+		
+		currentCenter.x = mapCoords.x * common.tileSize.x * common.mapSize.x;
+		currentCenter.y = mapCoords.y * common.tileSize.y * common.mapSize.y;
 	});
 	
 	socket.on( "playerUpdate", function( player ) {
@@ -90,9 +103,14 @@ $(function() {
 	});
 	
 	socket.on( "playerDisconnect", function( playerName ) {
-		var p = players[playerName];
-		playerSheets[playerName].destroy();
-		delete players[playerName];
+		try {
+			var p = players[playerName];
+			playerSheets[playerName].destroy();
+			delete players[playerName];
+		} catch( e )
+		{
+			console.log( "player didn't exist" );
+		}
 	});
 	
 	function update() {
@@ -159,12 +177,10 @@ $(function() {
 				
 				playerSheets[playerName] = sobj;
 			}
-			var ws = common.worldSpace( op.x, op.y );
-			sobj.setPosition( { x: ws.x, y: ws.y, z: 0 } );
+			sobj.setPosition( { x: op.x - currentCenter.x, y: op.y - currentCenter.y, z: 0 } );
 		}
-		
-		var ws = common.worldSpace( player.x, player.y );
-		sheetengine.scene.setCenter( {x:ws.x, y:ws.y, z:0} );
+	
+		sheetengine.scene.setCenter( { x: player.x - currentCenter.x, y: player.y - currentCenter.y, z: 0 } );
 		
 		sheetengine.calc.calculateChangedSheets();
 		sheetengine.drawing.drawScene(true);
