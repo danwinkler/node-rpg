@@ -14,9 +14,9 @@ var gd = {
 
 function genMap( x, y ) {
 	map = [];
-	for( var xx = 0; xx < 20; xx++ ) {
+	for( var xx = 0; xx < common.mapSize.x; xx++ ) {
 		map[xx] = [];
-		for( var yy = 0; yy < 20; yy++ ) {
+		for( var yy = 0; yy < common.mapSize.y; yy++ ) {
 			map[xx][yy] = 0;
 		}	
 	}
@@ -65,16 +65,31 @@ io.sockets.on("connection", function (socket) {
 		console.log( socketPlayer );
 		player.x = pd.x;
 		player.y = pd.y;
-		io.sockets.emit( "playerUpdate", player );
+		socket.broadcast.emit( "playerUpdate", player );
 	});
 	
 	socket.on( "requestMap", function() {
 		var player = socketPlayer[socket.id];
 		var mapCoords = common.mapCoordsFromPlayerCoords( player.x, player.y );
+		var maps = [];
 		for( var x = -1; x <= 1; x++ ) {
 			for( var y = -1; y <= 1; y++ ) {
-				socket.emit( "mapUpdate", { "x": mapCoords.x+x, "y": mapCoords.y+y, "map": getMap( mapCoords.x+x, mapCoords.y+y ) } );
+				maps.push( { "x": mapCoords.x+x, "y": mapCoords.y+y, "map": getMap( mapCoords.x+x, mapCoords.y+y ) } );
 			}
 		}
+		socket.emit( "mapUpdate", maps );
 	});
+	
+	socket.on( "disconnect", function() {
+		var player = socketPlayer[socket.id];
+		delete playerSocket[player.name];
+		delete socketPlayer[socket.id];
+		delete gd.players[player.name];
+		socket.broadcast.emit( "playerDisconnect", player.name );
+	});
+	
+	socket.on( "chat", function( text ) {
+		var player = socketPlayer[socket.id];
+		io.sockets.emit( "chat", { "player": player.name, "text": text } );
+	} );
 });

@@ -15,9 +15,18 @@
 	</head>
 	<body>
 		<div id="game-canvas-wrapper">
-			<canvas id="game-canvas" width="960" height="600">
+			<div id="left-box">
+				<div id="chat-view">
 				
-			</canvas>
+				</div>
+			</div>
+			<div id="right-box">
+				<canvas id="game-canvas" width="800" height="600" tabindex="1"></canvas>
+				
+				<div id="chat-wrapper">
+					<input type="text" id="chat-box"></input>
+				</div>
+			</div>
 		</div>
 	</body>
 </html>

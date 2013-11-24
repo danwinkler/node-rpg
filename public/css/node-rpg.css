@@ -5,6 +5,16 @@ html, body {
     height: 100%;
 }
 
+#left-box {
+	float: left;
+	width: 160px;
+}
+
+#right-box {
+	float: right;
+	width: 800px;
+}
+
 #game-canvas-wrapper {
 	position: absolute;
     top:0;
@@ -15,6 +25,15 @@ html, body {
     margin: auto;
 	
     width: 960px;
-    height: 600px;
+    height: 700px;
 	border: 1px solid grey;
+}
+
+#chat-wrapper {
+	height: 50px;
+	text-align: center;
+}
+
+#chat-box {
+	width: 99%;
 }

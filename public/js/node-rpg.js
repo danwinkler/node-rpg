@@ -1,11 +1,12 @@
 $(function() {
+	var ENTER_KEY = 13;
+	
 	var canvas = document.getElementById("game-canvas");
 	var g = canvas.getContext("2d");
 	
-	g.canvas.width = 960;
-	g.canvas.height = 600;
 	
-	sheetengine.scene.init( canvas, {w:g.canvas.width*3,h:g.canvas.height*3} );
+	g.canvas.width = 800;
+	g.canvas.height = 600;
 
 	var socket = io.connect('http://triggerly.com:8080');
 	
@@ -32,7 +33,9 @@ $(function() {
 	var maps = {
 	};
 	
-	var loadedSheets = {
+	var currentMap = { x:0, y:0 };
+	
+	var playerSheets = {
 	};
 	
 	function getMap( x, y ) {
@@ -40,7 +43,8 @@ $(function() {
 	}
 	
 	function setMap( x, y, map ) {
-		maps[ x + "," + y ] = map;
+		var key = x + "," + y;
+		maps[key] = map;
 	}
 	
  	socket.emit( "login", { "name": username } );
@@ -51,18 +55,25 @@ $(function() {
 		socket.emit( "requestMap" );
 	});
 	
-	socket.on( "mapUpdate", function( mapInfo ) {
-		setMap( mapInfo.x, mapInfo.y, mapInfo.map );
+	socket.on( "mapUpdate", function( maps ) {
+		playerSheets = {};
+		sheetengine.scene.init( canvas, {w:g.canvas.width*5,h:g.canvas.height*5} );
 		var player = players[username];
 		var mapCoords = common.mapCoordsFromPlayerCoords( player.x, player.y );
-		var xOffset = (mapInfo.x - mapCoords.x) * 50*20;
-		var yOffset = (mapInfo.y - mapCoords.y) * 50*20;
-		var map = mapInfo.map;
-		for( var x = 0; x < map.length; x++ ) {
-			var row = map[x];
-			for( var y = 0; y < row.length; y++ ) {
-				var basesheet = new sheetengine.BaseSheet( {x:x*50 + xOffset,y:y*50 + yOffset,z:0}, {alphaD:90,betaD:0,gammaD:0}, {w:50,h:50} );
-				basesheet.color = '#5D7E36';
+		for( var i = 0; i < maps.length; i++ ) {
+			var mapInfo = maps[i];
+			setMap( mapInfo.x, mapInfo.y, mapInfo.map );
+			var xOffset = (mapInfo.x - mapCoords.x) * common.tileSize.x*common.mapSize.x;
+			var yOffset = (mapInfo.y - mapCoords.y) * common.tileSize.y*common.mapSize.y;
+			var map = mapInfo.map;
+			map.basesheets = [];
+			for( var x = 0; x < map.length; x++ ) {
+				var row = map[x];
+				for( var y = 0; y < row.length; y++ ) {
+					var basesheet = new sheetengine.BaseSheet( {x:x*common.tileSize.x + xOffset,y:y*common.tileSize.y + yOffset,z:0}, {alphaD:90,betaD:0,gammaD:0}, {w:common.tileSize.x,h:common.tileSize.y} );
+					basesheet.color = '#5D7E36';
+					map.basesheets.push( basesheet );
+				}
 			}
 		}
 		sheetengine.calc.calculateAllSheets();
@@ -78,11 +89,21 @@ $(function() {
 		}
 	});
 	
+	socket.on( "playerDisconnect", function( playerName ) {
+		var p = players[playerName];
+		playerSheets[playerName].destroy();
+		delete players[playerName];
+	});
+	
 	function update() {
 		var player = players[username];
 		if( !player ) return;
 		
 		var mapCoords = common.mapCoordsFromPlayerCoords( player.x, player.y );
+		if( mapCoords.x != currentMap.x || mapCoords.y != currentMap.y ) {
+			currentMap = mapCoords;
+			socket.emit( "requestMap" );
+		}
 		var map = getMap( mapCoords.x, mapCoords.y );
 		
 		if( !map ) return;
@@ -118,7 +139,8 @@ $(function() {
 		
 		for( var playerName in players ) {
 			var op = players[playerName];
-			if( !op.sobj ) {
+			var sobj = playerSheets[playerName];
+			if( !sobj ) {
 				var sheet1 = new sheetengine.Sheet({x:0,y:-14,z:14}, {alphaD:45,betaD:0,gammaD:0}, {w:40,h:40});
 				sheet1.context.fillStyle = '#F00';
 				sheet1.context.fillRect(0,0,40,40);
@@ -128,21 +150,46 @@ $(function() {
 				sheet2.context.fillStyle = '#FFF';
 				sheet2.context.fillRect(0,0,40,40);
 				sheet2.context.clearRect(10,10,20,20);
-
-				op.sobj = new sheetengine.SheetObject(
-				  {x:op.x,y:op.y,z:0}, 
+				var ws = common.worldSpace( op.x, op.y );
+				sobj = new sheetengine.SheetObject(
+				  {x:ws.x,y:ws.y,z:0}, 
 				  {alphaD:0,betaD:0,gammaD:0}, 
 				  [sheet1, sheet2], 
 				  {w:80,h:80,relu:40,relv:50});
+				
+				playerSheets[playerName] = sobj;
 			}
-			op.sobj.setPosition( { x: op.x, y: op.y, z: 0 } );
+			var ws = common.worldSpace( op.x, op.y );
+			sobj.setPosition( { x: ws.x, y: ws.y, z: 0 } );
 		}
 		
-		sheetengine.scene.setCenter( {x:player.x, y:player.y, z:0} );
+		var ws = common.worldSpace( player.x, player.y );
+		sheetengine.scene.setCenter( {x:ws.x, y:ws.y, z:0} );
 		
-		sheetengine.calc.calculateAllSheets();
+		sheetengine.calc.calculateChangedSheets();
 		sheetengine.drawing.drawScene(true);
 	}
 	
 	setInterval( update, 1000/30 );
+	
+	//Chat related stuff
+	socket.on( "chat", function( d ) {
+		$( "#chat-view" ).append( '<div class="message"><span class="username">' + d.player + ': </span><span class="text">' + d.text + '</span></div>' );
+	});
+	
+	$( "#game-canvas" ).bind( "keyup", function( e )  {
+		var code = e.keyCode || e.which;
+		if( code == ENTER_KEY ) {
+			$( "#chat-box" ).focus();
+		}
+	});
+	
+	$( "#chat-box" ).bind( "keyup", function( e ) {
+		var code = e.keyCode || e.which;
+		if( code == ENTER_KEY ) {
+			socket.emit( "chat", $(this).val() );
+			$(this).val( "" );
+			$("#game-canvas").focus();
+		}
+	} );
 });  
